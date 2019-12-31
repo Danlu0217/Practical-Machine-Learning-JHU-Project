@@ -1,0 +1,88 @@
+---
+title: "Practical-Machine-Learning-JHU project"
+author: "Danlu Z"
+date: "12/31/2019"
+output: html_document
+---
+### *Overview*
+##### This document analyses how well the different activities hasve been performed by sports monitor users. Based on the data collected on the performance (ABCD) vs various activities, various predictive models have been built. A well-fitting model was picked based on the highest accuracy and low out-of sample error rate. 
+
+### **Data Processing**
+``` {r echo=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile="training.csv")
+# pay attention here, the missing values, NA have been treated as na.strings
+file1<-read.csv("training.csv",na.strings=c("NA","#DIV/0!", ""))
+summary(file1$classe)
+dim(file1)
+```
+### **Library Loading**
+``` {r echo=TRUE}
+library(caret)
+library(rpart.plot)
+library(tidyverse)
+library(tidyr)
+library(rpart)
+library(randomForest)
+```
+
+### **Data Cleaning**
+``` {r echo=TRUE}
+#Delete columns with all missing values
+file2<-file1[,colSums(is.na(file1))==0]
+#New dataframe dimensions
+dim(file2)
+# Rplace NA in each column with median of that column.
+for(i in 1:ncol(file2))
+   {
+  file2[is.na(file2[,i]), i] <- median(as.numeric(file2[,i]), na.rm = TRUE)
+}
+# Do some exploratory study on the data set
+summary(file2)
+# Columns 1:7 have nothing to do with the model, so we need to subset the data.
+file3<-file2[8:ncol(file2)]
+```
+
+#### Take a look at the clean data set
+``` {r echo= TRUE}
+head(file3)
+```
+##### Since the response is discrete (A/B/C/D) for various predictors, we need to
+use classification models for this problem. 
+
+### **Model Building**
+```{r echo=TRUE}
+set.seed(11)
+sample<-createDataPartition(file3$classe,p=0.7,list=FALSE)
+train<-file3[sample,]
+ver<-file3[-sample,]
+```
+##### The provided data set has been divided to train data set and verification data set. The cross-validation is based on these two data sets.
+
+### 1. Train the model with "randomForest" method
+```{r echo=TRUE}
+fit.rf <- randomForest(classe~., data = train, method = "class")
+acc.rf<-confusionMatrix(ver$classe,predict(fit.rf,ver))
+# Get the accuracy of this model
+acc.rf$overall[1]
+# Take a look at the plot
+plot(fit.rf)
+```
+### 2. Train the model with decision tree method
+```{r echo=TRUE}
+fit.tree<-rpart(classe~.,data=train,method = "class")
+pre.tree<-predict(fit.tree,ver,type="class")
+# Get the accuracy of this model
+acc.tree<-confusionMatrix(ver$classe,pre.tree)
+acc.tree$overall[1]
+# Take a look at the plot
+rpart.plot(fit.tree,uniform=TRUE,tweak = 2.2)
+```
+### **Model Selection**
+#### Apparently, the randomForest method results in a model with a higher accuracy.and the out-of-sample error is 1-cross-validation model related accuracy = 1- 0.95=0.04, so the out-of-sample error is around 4% with *randomeForest* or *"fit.rf"* model. 
+
+
+### *Model Testing*
+``` {r echo=TRUE}
+test <- download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="test.csv")
+pre_test<-predict(pre.rf,test)
+``` 
